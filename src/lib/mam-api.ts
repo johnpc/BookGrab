@@ -75,6 +75,16 @@ export async function searchBooks(query: string): Promise<SearchResponse> {
       }
 
       // Parse narrator info for audiobooks
+      let narrator = undefined;
+      try {
+        if (item.narrator_info && category === "audiobook") {
+          const narratorInfo = JSON.parse(item.narrator_info);
+          narrator = Object.values(narratorInfo).join(", ");
+        }
+      } catch (e) {
+        console.error("Error parsing narrator info:", e);
+      }
+
       let length = undefined;
       if (category === "audiobook" && item.description) {
         // Try to extract length from description
@@ -105,6 +115,7 @@ export async function searchBooks(query: string): Promise<SearchResponse> {
         id: item.id.toString(),
         title: item.title || "Unknown Title",
         author,
+        narrator,
         format,
         length,
         torrentLink: `https://www.myanonamouse.net/tor/download.php/${item.dl}`,

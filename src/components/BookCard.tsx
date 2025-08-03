@@ -122,6 +122,12 @@ export default function BookCard({ book }: BookCardProps) {
             marginBottom="small"
           >
             by {book.author}
+            {book.narrator && book.category === "audiobook" && (
+              <>
+                <br />
+                narrated by {book.narrator}
+              </>
+            )}
           </Text>
 
           <Flex wrap="wrap" gap="xs" marginBottom="medium">

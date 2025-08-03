@@ -2,6 +2,7 @@ export interface Book {
   id: string;
   title: string;
   author: string;
+  narrator?: string; // Optional for audiobooks
   format: string;
   length?: string; // Optional for audiobooks
   torrentLink: string;
