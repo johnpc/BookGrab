@@ -147,6 +147,30 @@ export default function BookCard({ book }: BookCardProps) {
             )}
           </Flex>
 
+          {/* Subtle MyAnonyMouse link */}
+          <Text fontSize="xs" marginBottom="medium">
+            <a
+              href={`https://www.myanonamouse.net/t/${book.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: tokens.colors.font.secondary.value,
+                textDecoration: "none",
+                opacity: 0.7,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = "1";
+                e.currentTarget.style.textDecoration = "underline";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = "0.7";
+                e.currentTarget.style.textDecoration = "none";
+              }}
+            >
+              View on MyAnonyMouse ↗
+            </a>
+          </Text>
+
           {/* Stats Row */}
           <Flex alignItems="center" gap="small" marginTop="auto">
             {book.size && (
