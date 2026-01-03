@@ -1,9 +1,21 @@
 import { getServerEnvVariables } from "./env";
 import { Book, SearchResponse } from "../types";
 
-export async function searchBooks(query: string): Promise<SearchResponse> {
+export async function searchBooks(
+  query: string,
+  mamToken?: string,
+  startNumber: number = 0,
+  sortType: string = "seeds",
+): Promise<SearchResponse> {
   try {
-    const { MAM_TOKEN } = getServerEnvVariables();
+    const { MAM_TOKEN: envToken } = getServerEnvVariables();
+    const MAM_TOKEN = mamToken || envToken;
+
+    if (!MAM_TOKEN) {
+      throw new Error(
+        "MAM_TOKEN is required. Please configure it in Settings or set it in your environment variables.",
+      );
+    }
 
     // Construct the JSON search payload
     const searchPayload = {
@@ -20,8 +32,8 @@ export async function searchBooks(query: string): Promise<SearchResponse> {
         searchType: "all",
         searchIn: "torrents",
         cat: ["0"],
-        sortType: "default",
-        startNumber: "0",
+        sortType: sortType,
+        startNumber: startNumber.toString(),
       },
       thumbnail: "true",
     };
@@ -54,10 +66,11 @@ export async function searchBooks(query: string): Promise<SearchResponse> {
       !Array.isArray(jsonData.data) ||
       jsonData.data.length === 0
     ) {
-      return { books: [] };
+      return { books: [], hasMore: false, totalResults: 0 };
     }
 
     const books: Book[] = jsonData.data.map((item: any) => {
+
       // Determine if it's an audiobook or ebook based on main_cat
       // 13 = AudioBooks, 14 = E-Books
       const category =
@@ -75,6 +88,16 @@ export async function searchBooks(query: string): Promise<SearchResponse> {
       }
 
       // Parse narrator info for audiobooks
+      let narrator = undefined;
+      try {
+        if (item.narrator_info && category === "audiobook") {
+          const narratorInfo = JSON.parse(item.narrator_info);
+          narrator = Object.values(narratorInfo).join(", ");
+        }
+      } catch (e) {
+        console.error("Error parsing narrator info:", e);
+      }
+
       let length = undefined;
       if (category === "audiobook" && item.description) {
         // Try to extract length from description
@@ -93,23 +116,15 @@ export async function searchBooks(query: string): Promise<SearchResponse> {
         if (formatFromTags) format = formatFromTags;
       }
 
-      // For thumbnails, we need to ensure we're using the full URL
-      // The API sometimes returns relative paths
-      let thumbnail = item.thumbnail;
-      if (thumbnail && !thumbnail.startsWith("http")) {
-        // If it's a relative URL, make it absolute
-        thumbnail = `https://www.myanonamouse.net${thumbnail.startsWith("/") ? "" : "/"}${thumbnail}`;
-      }
-
-      const returnValue = {
+      return {
         id: item.id.toString(),
         title: item.title || "Unknown Title",
         author,
+        narrator,
         format,
         length,
         torrentLink: `https://www.myanonamouse.net/tor/download.php/${item.dl}`,
         category,
-        thumbnail,
         size: item.size || null,
         seeders: item.seeders || 0,
         leechers: item.leechers || 0,
@@ -117,16 +132,28 @@ export async function searchBooks(query: string): Promise<SearchResponse> {
         tags: item.tags || null,
         completed: item.times_completed || 0,
       };
-      console.log({ returnValue });
-      return returnValue;
     });
 
-    return { books };
+    // MAM API returns the total number of results in the 'found' field
+    // Use this to properly determine if there are more results available
+    const totalResults = typeof jsonData.found === 'number'
+      ? jsonData.found
+      : parseInt(String(jsonData.found), 10) || 0;
+    const currentEndPosition = startNumber + books.length;
+    const hasMore = currentEndPosition < totalResults;
+
+    return {
+      books,
+      hasMore,
+      totalResults
+    };
   } catch (error) {
     console.error("Error searching books:", error);
     return {
       books: [],
       error: error instanceof Error ? error.message : "Unknown error occurred",
+      hasMore: false,
+      totalResults: 0,
     };
   }
 }

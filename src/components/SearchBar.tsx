@@ -97,90 +97,144 @@ export default function SearchBar({ onSearch, isLoading }: SearchBarProps) {
   };
 
   return (
-    <>
+    <div style={{ position: "relative", width: "100%" }}>
       <form onSubmit={handleSubmit} style={{ width: "100%" }}>
-        <SearchField
-          ref={searchInputRef}
-          label="Search"
-          placeholder="Search for books"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onFocus={() => recentSearches.length > 0 && setShowRecent(true)}
-          isDisabled={isLoading}
-          size="large"
-          width="100%"
-          labelHidden
-        />
-        {/* Hidden submit button to enable Enter key submission */}
+        <div style={{ position: "relative" }}>
+          <div style={{
+            position: "absolute",
+            left: "20px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            pointerEvents: "none",
+            zIndex: 1
+          }}>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="22"
+              height="22"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="#94a3b8"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+          </div>
+          <input
+            ref={searchInputRef as any}
+            type="text"
+            placeholder="Search for books, authors, or series..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onFocus={() => recentSearches.length > 0 && setShowRecent(true)}
+            disabled={isLoading}
+            style={{
+              width: "100%",
+              padding: "16px 50px",
+              fontSize: "15px",
+              background: "#0f172a",
+              border: "1px solid #334155",
+              borderRadius: "10px",
+              color: "#e5e7eb",
+              outline: "none"
+            }}
+          />
+        </div>
         <button type="submit" style={{ display: 'none' }} aria-hidden="true" />
       </form>
 
       {/* Recent searches dropdown */}
       {showRecent && recentSearches.length > 0 && (
-        <Card
-          ref={dropdownRef}
-          width="100%"
-          marginTop="8px"
-          padding="0"
-          borderRadius="medium"
-          boxShadow="medium"
-          position="absolute"
-          top="100%"
+        <div
+          ref={dropdownRef as any}
+          style={{
+            position: "absolute",
+            top: "calc(100% + 8px)",
+            left: 0,
+            right: 0,
+            background: "#1e293b",
+            border: "1px solid #334155",
+            borderRadius: "10px",
+            padding: "12px",
+            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.4)",
+            zIndex: 10
+          }}
         >
-          {/* <Flex direction="row" justifyContent="space-between" alignItems="center" padding="medium"> */}
-          <Text fontWeight="bold" fontSize="small">
-            Recent Searches
-          </Text>
-          <Button
-            onClick={clearRecentSearches}
-            size="small"
-            variation="link"
-            color={tokens.colors.font.error}
-          >
-            Clear All
-          </Button>
-          {/* </Flex> */}
-          <Divider />
-          {recentSearches.map((search, index) => (
-            <Flex
-              key={index}
-              as="button"
-              onClick={() => handleRecentSearch(search)}
-              width="100%"
-              // padding="medium"
-              alignItems="center"
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "8px",
+            padding: "4px 8px"
+          }}>
+            <Text fontWeight="600" fontSize="small" color="#94a3b8">
+              Recent Searches
+            </Text>
+            <button
+              onClick={clearRecentSearches}
               style={{
-                cursor: "pointer",
-                background: "transparent",
+                background: "none",
                 border: "none",
-                textAlign: "left",
-              }}
-              _hover={{
-                backgroundColor: tokens.colors.background.secondary,
+                color: "#ef4444",
+                cursor: "pointer",
+                fontSize: "12px",
+                fontWeight: "500",
+                padding: "4px 8px",
+                borderRadius: "6px"
               }}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                style={{ marginRight: "8px" }}
+              Clear All
+            </button>
+          </div>
+          <div style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "4px"
+          }}>
+            {recentSearches.map((search, index) => (
+              <button
+                key={index}
+                onClick={() => handleRecentSearch(search)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  padding: "10px 12px",
+                  background: "transparent",
+                  border: "none",
+                  borderRadius: "8px",
+                  color: "#e5e7eb",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  fontSize: "14px"
+                }}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="#94a3b8"
                   strokeWidth={2}
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <Text>{search}</Text>
-            </Flex>
-          ))}
-        </Card>
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <span>{search}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       )}
-    </>
+    </div>
   );
 }

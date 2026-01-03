@@ -2,6 +2,7 @@
 
 import { ThemeProvider, createTheme } from "@aws-amplify/ui-react";
 import { useState, useEffect, ReactNode } from "react";
+import { SettingsProvider } from "@/contexts/SettingsContext";
 import "@aws-amplify/ui-react/styles.css";
 
 interface ProvidersProps {
@@ -82,33 +83,12 @@ export default function Providers({ children }: ProvidersProps) {
   });
 
   return (
-    <ThemeProvider theme={theme} colorMode={colorMode}>
-      <div className="amplify-app">
-        {children}
-        <button
-          onClick={() => setColorMode(colorMode === "light" ? "dark" : "light")}
-          style={{
-            position: "fixed",
-            bottom: "20px",
-            right: "20px",
-            width: "40px",
-            height: "40px",
-            borderRadius: "50%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: colorMode === "light" ? "#0f172a" : "#f8fafc",
-            color: colorMode === "light" ? "#f8fafc" : "#0f172a",
-            border: "none",
-            cursor: "pointer",
-            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
-            zIndex: 1000,
-          }}
-          aria-label={`Switch to ${colorMode === "light" ? "dark" : "light"} mode`}
-        >
-          {colorMode === "light" ? "🌙" : "☀️"}
-        </button>
-      </div>
-    </ThemeProvider>
+    <SettingsProvider>
+      <ThemeProvider theme={theme} colorMode={colorMode}>
+        <div className="amplify-app">
+          {children}
+        </div>
+      </ThemeProvider>
+    </SettingsProvider>
   );
 }

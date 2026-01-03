@@ -23,179 +23,90 @@ interface BookListProps {
 
 export default function BookList({ books, isLoading, error }: BookListProps) {
   const [view, setView] = useState<"grid" | "list">("grid");
-  const [sortBy, setSortBy] = useState<"title" | "seeders" | "date" | "size">(
-    "seeders",
-  );
-  const [filterCategory, setFilterCategory] = useState<
-    "all" | "audiobook" | "ebook"
-  >("all");
   const { tokens } = useTheme();
 
   if (isLoading) {
     return (
-      <Flex
-        width="100%"
-        justifyContent="center"
-        alignItems="center"
-        padding="xxl"
-      >
-        <Loader size="large" />
-      </Flex>
+      <div style={{
+        width: "100%",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: "80px 24px"
+      }}>
+        <div style={{
+          textAlign: "center"
+        }}>
+          <div style={{
+            width: "60px",
+            height: "60px",
+            border: "4px solid rgba(102, 126, 234, 0.2)",
+            borderTop: "4px solid #667eea",
+            borderRadius: "50%",
+            margin: "0 auto 20px",
+            animation: "spin 1s linear infinite"
+          }} />
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+          <Text fontSize="medium" color="#94a3b8" fontWeight="500">
+            Loading books...
+          </Text>
+        </div>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <Alert variation="error" width="100%">
-        Error: {error}
-      </Alert>
+      <div style={{
+        padding: "20px",
+        background: "rgba(239, 68, 68, 0.15)",
+        border: "1px solid rgba(239, 68, 68, 0.3)",
+        borderRadius: "12px",
+        color: "#ef4444",
+        fontSize: "15px",
+        fontWeight: "500"
+      }}>
+        ✕ Error: {error}
+      </div>
     );
   }
 
   if (books.length === 0) {
     return (
-      <Flex
-        width="100%"
-        justifyContent="center"
-        alignItems="center"
-        padding="xxl"
-      >
-        <Text color={tokens.colors.font.secondary}>
+      <div style={{
+        width: "100%",
+        textAlign: "center",
+        padding: "80px 24px"
+      }}>
+        <div style={{
+          fontSize: "48px",
+          marginBottom: "16px"
+        }}>📚</div>
+        <Text fontSize="large" color="#94a3b8" fontWeight="500">
           No books found. Try a different search term.
         </Text>
-      </Flex>
+      </div>
     );
   }
 
-  // Filter books by category
-  const filteredBooks =
-    filterCategory === "all"
-      ? books
-      : books.filter((book) => book.category === filterCategory);
-
-  // Sort books
-  const sortedBooks = [...filteredBooks].sort((a, b) => {
-    switch (sortBy) {
-      case "title":
-        return a.title.localeCompare(b.title);
-      case "seeders":
-        return (b.seeders || 0) - (a.seeders || 0);
-      case "date":
-        return a.added && b.added
-          ? new Date(b.added).getTime() - new Date(a.added).getTime()
-          : 0;
-      case "size":
-        // Simple size comparison (not perfect but works for basic sorting)
-        const sizeA = a.size ? parseFloat(a.size.replace(/[^0-9.]/g, "")) : 0;
-        const sizeB = b.size ? parseFloat(b.size.replace(/[^0-9.]/g, "")) : 0;
-        return sizeB - sizeA;
-      default:
-        return 0;
-    }
-  });
-
   return (
-    <Flex direction="column" width="100%" gap="medium">
-      {/* Controls */}
-      <Flex
-        direction={{ base: "column", medium: "row" }}
-        justifyContent="space-between"
-        alignItems={{ base: "stretch", medium: "center" }}
-        gap="small"
-        padding="medium"
-        backgroundColor={tokens.colors.background.primary}
-        borderRadius="medium"
-        boxShadow="small"
-      >
-        <Flex gap="small" direction={{ base: "column", small: "row" }} flex="1">
-          <SelectField
-            label="Filter by type"
-            labelHidden
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value as any)}
-            size="small"
-          >
-            <option value="all">All Types</option>
-            <option value="audiobook">Audiobooks</option>
-            <option value="ebook">Ebooks</option>
-          </SelectField>
-
-          <SelectField
-            label="Sort by"
-            labelHidden
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
-            size="small"
-          >
-            <option value="seeders">Most Seeders</option>
-            <option value="title">Title</option>
-            <option value="date">Newest</option>
-            <option value="size">Size</option>
-          </SelectField>
-        </Flex>
-
-        <ToggleButtonGroup
-          value={view}
-          onChange={(value) => setView(value as "grid" | "list")}
-          isExclusive
-          size="small"
-        >
-          <ToggleButton value="grid" aria-label="Grid view">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-              />
-            </svg>
-          </ToggleButton>
-          <ToggleButton value="list" aria-label="List view">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-          </ToggleButton>
-        </ToggleButtonGroup>
-      </Flex>
-
-      {/* Results count */}
-      <Text fontSize="small" color={tokens.colors.font.secondary}>
-        Showing {filteredBooks.length} of {books.length} results
-      </Text>
-
-      {/* Book grid/list */}
-      <View
-        style={{
-          display: "grid",
-          gridTemplateColumns:
-            view === "grid" ? "repeat(auto-fill, minmax(300px, 1fr))" : "1fr",
-          gap: "16px",
-          width: "100%",
-        }}
-      >
-        {sortedBooks.map((book) => (
+    <div style={{ width: "100%" }}>
+      {/* Book grid - mobile-first, single column on mobile, 2 columns on larger screens */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "1fr",
+        gap: "12px",
+        width: "100%"
+      }}>
+        {books.map((book) => (
           <BookCard key={book.id} book={book} />
         ))}
-      </View>
-    </Flex>
+      </div>
+    </div>
   );
 }

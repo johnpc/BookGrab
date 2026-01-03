@@ -2,11 +2,11 @@ export interface Book {
   id: string;
   title: string;
   author: string;
+  narrator?: string; // Optional for audiobooks
   format: string;
   length?: string; // Optional for audiobooks
   torrentLink: string;
   category: "audiobook" | "ebook";
-  thumbnail?: string; // URL to book thumbnail
   size?: string; // Size of the torrent
   seeders?: number; // Number of seeders
   leechers?: number; // Number of leechers
@@ -18,6 +18,8 @@ export interface Book {
 export interface SearchResponse {
   books: Book[];
   error?: string;
+  hasMore?: boolean;
+  totalResults?: number;
 }
 
 export interface TransmissionResponse {

@@ -2,32 +2,14 @@
 
 import { useState } from "react";
 import { Book } from "@/types";
-import Image from "next/image";
-import {
-  Card,
-  Flex,
-  Text,
-  Button,
-  Badge,
-  Heading,
-  Divider,
-  useTheme,
-  View,
-  Alert,
-} from "@aws-amplify/ui-react";
 
-interface BookCardProps {
-  book: Book;
-}
-
-export default function BookCard({ book }: BookCardProps) {
+export default function BookCard({ book }: { book: Book }) {
   const [isGrabbing, setIsGrabbing] = useState(false);
   const [grabStatus, setGrabStatus] = useState<"idle" | "success" | "error">(
     "idle",
   );
   const [errorMessage, setErrorMessage] = useState("");
   const [showDetails, setShowDetails] = useState(false);
-  const { tokens } = useTheme();
 
   const handleGrab = async () => {
     setIsGrabbing(true);
@@ -64,189 +46,219 @@ export default function BookCard({ book }: BookCardProps) {
     }
   };
 
-  // Format date to a more readable format
   const formattedDate = book.added
     ? new Date(book.added).toLocaleDateString()
     : null;
 
   return (
-    <Card variation="elevated" padding="medium" height="100%">
-      <Flex direction={{ base: "column", medium: "row" }} gap="medium">
-        {/* Thumbnail */}
-        {/* <View
-          width={{ base: '100%', medium: '128px' }}
-          height={{ base: '160px', medium: '176px' }}
-          position="relative"
-          borderRadius="medium"
-          overflow="hidden"
-          backgroundColor={tokens.colors.background.secondary}
+    <div style={{
+      background: "#1e293b",
+      border: "1px solid #334155",
+      borderRadius: "12px",
+      padding: "16px",
+      display: "flex",
+      flexDirection: "column",
+      gap: "12px"
+    }}>
+      {/* Header: Type badge + Format + Size */}
+      <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{
+          padding: "4px 10px",
+          borderRadius: "6px",
+          fontSize: "12px",
+          fontWeight: "600",
+          background: book.category === "audiobook" ? "#1e3a8a" : "#065f46",
+          color: book.category === "audiobook" ? "#93c5fd" : "#6ee7b7"
+        }}>
+          {book.category === "audiobook" ? "Audiobook" : "Ebook"}
+        </span>
+        <span style={{
+          padding: "4px 10px",
+          borderRadius: "6px",
+          fontSize: "12px",
+          fontWeight: "600",
+          background: "#374151",
+          color: "#d1d5db"
+        }}>
+          {book.format.toUpperCase()}
+        </span>
+        {book.size && (
+          <span style={{
+            marginLeft: "auto",
+            fontSize: "13px",
+            color: "#94a3b8",
+            fontWeight: "500"
+          }}>
+            {book.size}
+          </span>
+        )}
+      </div>
+
+      {/* Title */}
+      <h3 style={{
+        fontSize: "17px",
+        fontWeight: "700",
+        color: "#f1f5f9",
+        margin: 0,
+        lineHeight: "1.4"
+      }}>
+        <a
+          href={`https://www.myanonamouse.net/t/${book.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "inherit", textDecoration: "none" }}
         >
-          {book.thumbnail ? (
-            <Image
-              src={`/api/image-proxy?url=${encodeURIComponent(book.thumbnail)}`}
-              alt={book.title}
-              fill
-              style={{ objectFit: 'cover' }}
-              sizes="(max-width: 640px) 100vw, 128px"
-              unoptimized={true} // Skip Next.js image optimization for external images
-            />
-          ) : (
-            <Flex
-              width="100%"
-              height="100%"
-              alignItems="center"
-              justifyContent="center"
-              color={tokens.colors.font.secondary}
-            >
-              {book.category === 'audiobook' ? (
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                </svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-              )}
-            </Flex>
-          )}
-        </View> */}
+          {book.title}
+        </a>
+      </h3>
 
-        {/* Book Info */}
-        <Flex direction="column" flex="1">
-          <Heading level={3} fontSize="large" marginBottom="xxs">
-            {book.title}
-          </Heading>
-          <Text
-            fontSize="small"
-            color={tokens.colors.font.secondary}
-            marginBottom="small"
-          >
-            by {book.author}
-          </Text>
+      {/* Author & Narrator */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+        <p style={{ fontSize: "14px", color: "#94a3b8", margin: 0 }}>
+          by <span style={{ color: "#cbd5e1" }}>{book.author}</span>
+        </p>
+        {book.narrator && book.category === "audiobook" && (
+          <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>
+            Narrated by {book.narrator}
+          </p>
+        )}
+      </div>
 
-          <Flex wrap="wrap" gap="xs" marginBottom="medium">
-            <Badge
-              variation={book.category === "audiobook" ? "info" : "success"}
-              size="small"
-            >
-              {book.category === "audiobook" ? "🎧 Audiobook" : "📚 Ebook"}
-            </Badge>
-            <Badge variation="warning" size="small">
-              {book.format}
-            </Badge>
-            {book.length && (
-              <Badge variation="default" size="small">
-                ⏱️ {book.length}
-              </Badge>
-            )}
-          </Flex>
+      {/* Length if available */}
+      {book.length && (
+        <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>
+          Duration: {book.length}
+        </p>
+      )}
 
-          {/* Stats Row */}
-          <Flex alignItems="center" gap="small" marginTop="auto">
-            {book.size && (
-              <Text fontSize="xs" color={tokens.colors.font.secondary}>
-                {book.size}
-              </Text>
-            )}
-            <Flex alignItems="center">
-              <Text color="green" fontSize="xs" marginRight="xxs">
-                ▲
-              </Text>
-              <Text fontSize="xs" color={tokens.colors.font.secondary}>
-                {book.seeders}
-              </Text>
-            </Flex>
-            <Flex alignItems="center">
-              <Text color="red" fontSize="xs" marginRight="xxs">
-                ▼
-              </Text>
-              <Text fontSize="xs" color={tokens.colors.font.secondary}>
-                {book.leechers}
-              </Text>
-            </Flex>
-            {book.completed !== undefined && (
-              <Flex alignItems="center">
-                <Text fontSize="xs" color={tokens.colors.font.secondary}>
-                  ✓ {book.completed}
-                </Text>
-              </Flex>
-            )}
-          </Flex>
-        </Flex>
-      </Flex>
+      {/* Stats - Clear labels */}
+      <div style={{
+        display: "flex",
+        gap: "20px",
+        padding: "12px 0",
+        borderTop: "1px solid #334155",
+        borderBottom: "1px solid #334155"
+      }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <span style={{ fontSize: "18px", fontWeight: "700", color: "#22c55e" }}>
+            {book.seeders}
+          </span>
+          <span style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>Seeders</span>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <span style={{ fontSize: "18px", fontWeight: "700", color: "#f87171" }}>
+            {book.leechers}
+          </span>
+          <span style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>Leechers</span>
+        </div>
+        {book.completed !== undefined && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <span style={{ fontSize: "18px", fontWeight: "700", color: "#94a3b8" }}>
+              {book.completed}
+            </span>
+            <span style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>Downloads</span>
+          </div>
+        )}
+      </div>
 
       {/* Expandable Details */}
-      <Flex direction="column" marginTop="small">
-        <Button
+      {(formattedDate || book.tags) && (
+        <button
           onClick={() => setShowDetails(!showDetails)}
-          variation="link"
-          size="small"
-          gap="xxs"
+          style={{
+            background: "none",
+            border: "none",
+            color: "#64748b",
+            cursor: "pointer",
+            fontSize: "13px",
+            fontWeight: "500",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "6px",
+            padding: "6px 0"
+          }}
         >
-          {showDetails ? "Hide details" : "Show details"}
+          {showDetails ? "Hide details" : "More details"}
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            width="12"
-            height="12"
+            width="14"
+            height="14"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
-            style={{
-              transform: showDetails ? "rotate(180deg)" : "rotate(0deg)",
-              transition: "transform 0.2s ease",
-            }}
+            strokeWidth={2}
+            style={{ transform: showDetails ? "rotate(180deg)" : "rotate(0deg)" }}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 9l-7 7-7-7"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
           </svg>
-        </Button>
+        </button>
+      )}
 
-        {showDetails && (
-          <Flex
-            direction="column"
-            marginTop="xs"
-            fontSize="xs"
-            color={tokens.colors.font.secondary}
-          >
-            {formattedDate && <Text>Added: {formattedDate}</Text>}
-            {book.tags && <Text>Tags: {book.tags}</Text>}
-          </Flex>
-        )}
-      </Flex>
+      {showDetails && (
+        <div style={{
+          padding: "12px",
+          background: "#0f172a",
+          borderRadius: "8px",
+          fontSize: "13px",
+          color: "#94a3b8",
+          display: "flex",
+          flexDirection: "column",
+          gap: "6px"
+        }}>
+          {formattedDate && <div>Added: {formattedDate}</div>}
+          {book.tags && <div>Tags: {book.tags}</div>}
+        </div>
+      )}
 
-      <Divider marginTop="medium" marginBottom="medium" />
+      {/* Status Messages */}
+      {grabStatus === "success" && (
+        <div style={{
+          padding: "12px",
+          background: "#065f46",
+          borderRadius: "8px",
+          color: "#6ee7b7",
+          fontSize: "14px",
+          fontWeight: "600",
+          textAlign: "center"
+        }}>
+          Added to Transmission!
+        </div>
+      )}
 
-      {/* Action Buttons */}
-      <Flex direction="column" gap="small">
-        {grabStatus === "success" && (
-          <Alert variation="success" isDismissible={false} hasIcon={true}>
-            Added to Transmission!
-          </Alert>
-        )}
+      {grabStatus === "error" && (
+        <div style={{
+          padding: "12px",
+          background: "#7f1d1d",
+          borderRadius: "8px",
+          color: "#fca5a5",
+          fontSize: "14px",
+          fontWeight: "600",
+          textAlign: "center"
+        }}>
+          {errorMessage || "Failed to add torrent"}
+        </div>
+      )}
 
-        {grabStatus === "error" && (
-          <Alert variation="error" isDismissible={false} hasIcon={true}>
-            {errorMessage || "Failed to add torrent"}
-          </Alert>
-        )}
-
-        <Button
-          onClick={handleGrab}
-          isDisabled={isGrabbing || grabStatus === "success"}
-          variation={grabStatus === "success" ? "primary" : undefined}
-          // variation='primary'
-          colorTheme={grabStatus === "success" ? "success" : "success"}
-          isLoading={isGrabbing}
-          loadingText="Grabbing..."
-          width="100%"
-        >
-          {grabStatus === "success" ? "Grabbed!" : "Grab"}
-        </Button>
-      </Flex>
-    </Card>
+      {/* Download Button */}
+      <button
+        onClick={handleGrab}
+        disabled={isGrabbing || grabStatus === "success"}
+        style={{
+          width: "100%",
+          padding: "14px",
+          background: grabStatus === "success" ? "#059669" : "#3b82f6",
+          border: "none",
+          borderRadius: "8px",
+          color: "white",
+          fontSize: "15px",
+          fontWeight: "700",
+          cursor: isGrabbing || grabStatus === "success" ? "not-allowed" : "pointer",
+          opacity: isGrabbing || grabStatus === "success" ? 0.7 : 1
+        }}
+      >
+        {isGrabbing ? "Downloading..." : grabStatus === "success" ? "Downloaded!" : "Download"}
+      </button>
+    </div>
   );
 }

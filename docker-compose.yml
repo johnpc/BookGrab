@@ -2,7 +2,7 @@ version: '3'
 
 services:
   bookgrab:
-    image: mrorbitman/bookgrab:latest
+    build: .  # Build from local Dockerfile instead of using remote image
     container_name: bookgrab
     ports:
       - "3000:3000"
