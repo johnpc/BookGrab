@@ -78,12 +78,13 @@ export async function addTorrent(
 
 async function makeTransmissionRequest(
   url: string,
-  payload: any,
+  payload: Record<string, unknown>,
   sessionId?: string,
 ): Promise<Response> {
+  const body = JSON.stringify(payload);
   const headers: HeadersInit = {
     "Content-Type": "application/json",
-    // 'Authorization': `Basic ${apiKey}`
+    "Content-Length": Buffer.byteLength(body).toString(),
   };
 
   if (sessionId) {
@@ -93,6 +94,6 @@ async function makeTransmissionRequest(
   return fetch(url, {
     method: "POST",
     headers,
-    body: JSON.stringify(payload),
+    body,
   });
 }
