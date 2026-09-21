@@ -37,8 +37,16 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
+# Writable location for the rotating MAM session cookie. MAM issues a new
+# mam_id on every refresh, so this must survive container recreation - mount
+# a named volume here or the token resets to the MAM_TOKEN seed on restart.
+ENV MAM_TOKEN_FILE=/data/mam_token
+RUN mkdir -p /data
+
 # Set proper permissions
-RUN chown -R nextjs:nodejs /app
+RUN chown -R nextjs:nodejs /app /data
+
+VOLUME ["/data"]
 
 # Switch to non-root user
 USER nextjs

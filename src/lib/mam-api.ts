@@ -1,4 +1,6 @@
 import { getServerEnvVariables } from "./env";
+import { refreshMamSession } from "./mam-session";
+import { getMamToken } from "./mam-token";
 import { Book, SearchResponse } from "../types";
 
 export async function searchBooks(
@@ -41,16 +43,33 @@ export async function searchBooks(
     // Use the JSON API endpoint
     const url = "https://www.myanonamouse.net/tor/js/loadSearchJSONbasic.php";
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "User-Agent": "BookGrab/1.0",
-        "Content-Type": "application/json",
-        Cookie: `mam_id=${MAM_TOKEN}`,
-      },
-      body: JSON.stringify(searchPayload),
-      next: { revalidate: 0 }, // Don't cache this request
-    });
+    const fetchWithToken = (token: string) =>
+      fetch(url, {
+        method: "POST",
+        headers: {
+          "User-Agent": "BookGrab/1.0",
+          "Content-Type": "application/json",
+          Cookie: `mam_id=${token}`,
+        },
+        body: JSON.stringify(searchPayload),
+        next: { revalidate: 0 }, // Don't cache this request
+      });
+
+    let response = await fetchWithToken(MAM_TOKEN);
+
+    // A 403 usually means the session drifted off our current IP. Re-bind it
+    // and retry once so a rotated token heals without any manual step. Skipped
+    // when the caller supplied its own token, since we must not overwrite it.
+    if (response.status === 403 && !mamToken) {
+      console.warn("MAM returned 403 - refreshing session and retrying");
+      const refresh = await refreshMamSession();
+      const refreshedToken = refresh.success ? getMamToken() : undefined;
+      if (refreshedToken) {
+        response = await fetchWithToken(refreshedToken);
+      } else if (refresh.hint) {
+        console.error(`MAM session refresh failed: ${refresh.hint}`);
+      }
+    }
 
     if (!response.ok) {
       console.error({ url, status: response.status });
