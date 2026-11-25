@@ -1,46 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
 import { refreshMamSession } from "@/lib/mam-session";
+import { errorResponse } from "@/lib/api-error";
+import type { KeepaliveResponse } from "@/types";
 
+export const dynamic = "force-dynamic";
+
+/**
+ * POST /api/mam-keepalive
+ * Header x-mam-token: optional user token to check instead of the server's.
+ *
+ * 200 { success: true, message, rotated, timestamp }
+ * 400 { success: false, message, hint?, timestamp }
+ */
 export async function POST(request: NextRequest) {
   try {
-    // A client-supplied token overrides the stored one (used by Settings).
     const overrideToken = request.headers.get("x-mam-token") ?? undefined;
     const result = await refreshMamSession(overrideToken);
+    const body: KeepaliveResponse = {
+      success: result.success,
+      message: result.message,
+      rotated: result.rotated,
+      ...(result.hint ? { hint: result.hint } : {}),
+      timestamp: new Date().toISOString(),
+    };
 
     if (!result.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: result.message,
-          ...(result.hint ? { hint: result.hint } : {}),
-        },
-        { status: 400 },
-      );
+      return NextResponse.json(body, { status: 400 });
     }
 
     console.log(
       `MAM keepalive: ${result.message}${result.rotated ? " (token rotated and persisted)" : ""}`,
     );
-
-    return NextResponse.json({
-      success: true,
-      message: result.message,
-      rotated: result.rotated,
-      timestamp: new Date().toISOString(),
-    });
+    return NextResponse.json(body);
   } catch (error) {
     console.error("MAM keepalive error:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 },
-    );
+    return errorResponse(error, "MAM_UPSTREAM");
   }
 }
 
-// Also support GET for easy testing
+// Also support GET for easy manual checks.
 export async function GET(request: NextRequest) {
   return POST(request);
 }

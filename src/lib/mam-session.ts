@@ -1,7 +1,5 @@
+import { getMamSeedboxUrl } from "./env";
 import { getMamToken, persistMamToken } from "./mam-token";
-
-const DYNAMIC_SEEDBOX_URL =
-  "https://t.myanonamouse.net/json/dynamicSeedbox.php";
 
 export interface KeepaliveResult {
   success: boolean;
@@ -10,10 +8,20 @@ export interface KeepaliveResult {
   hint?: string;
 }
 
+export interface KeepaliveRecord {
+  at: string;
+  success: boolean;
+  message: string;
+}
+
 interface SeedboxResponse {
   Success?: boolean;
   msg?: string;
 }
+
+/** Last server-side keepalive outcome, exposed via /api/status. */
+let lastKeepalive: KeepaliveRecord | null = null;
+export const getLastKeepalive = (): KeepaliveRecord | null => lastKeepalive;
 
 /**
  * MAM returns the refreshed cookie in Set-Cookie on every call, even when the
@@ -21,14 +29,7 @@ interface SeedboxResponse {
  * stale, so we always capture and persist it.
  */
 const extractRotatedToken = (response: Response): string | undefined => {
-  const headers = response.headers as Headers & {
-    getSetCookie?: () => string[];
-  };
-  const cookies =
-    typeof headers.getSetCookie === "function"
-      ? headers.getSetCookie()
-      : [response.headers.get("set-cookie") ?? ""];
-
+  const cookies = response.headers.getSetCookie();
   for (const cookie of cookies) {
     const match = cookie.match(/(?:^|;\s*)mam_id=([^;]+)/);
     if (match?.[1]) return match[1];
@@ -48,7 +49,7 @@ export const refreshMamSession = async (
     };
   }
 
-  const response = await fetch(DYNAMIC_SEEDBOX_URL, {
+  const response = await fetch(getMamSeedboxUrl(), {
     method: "GET",
     headers: {
       Cookie: `mam_id=${token}`,
@@ -70,23 +71,38 @@ export const refreshMamSession = async (
   const success =
     parsed.Success === true || /completed|no change/i.test(text);
 
+  const record = (result: KeepaliveResult): KeepaliveResult => {
+    // Only the server's own token is tracked; a user-supplied override is
+    // their session, not the server's.
+    if (!overrideToken) {
+      lastKeepalive = {
+        at: new Date().toISOString(),
+        success: result.success,
+        message: result.message,
+      };
+    }
+    return result;
+  };
+
   if (!success) {
     const wrongType = /incorrect session type/i.test(text);
-    return {
+    return record({
       success: false,
       message,
       rotated: false,
       hint: wrongType
         ? "Session is not a dynamic seedbox type. Recreate it in MAM security preferences with 'allow session to set dynamic seedbox IP' enabled."
         : undefined,
-    };
+    });
   }
 
   const rotatedToken = extractRotatedToken(response);
+  // Never persist a rotation of a user-supplied token over the server's own.
   const rotated =
+    !overrideToken &&
     rotatedToken !== undefined &&
     rotatedToken !== token &&
     persistMamToken(rotatedToken);
 
-  return { success: true, message, rotated };
+  return record({ success: true, message, rotated });
 };

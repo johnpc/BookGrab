@@ -1,248 +1,238 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useSettings } from "@/contexts/SettingsContext";
+import { THEME_PREFERENCES, type ThemePreference } from "@/lib/theme";
+import type { StatusResponse } from "@/types";
+import { CloseIcon } from "./icons";
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const { mamToken, setMamToken, keepaliveStatus, triggerKeepalive } = useSettings();
-  const [tokenInput, setTokenInput] = useState(mamToken);
-  const [saved, setSaved] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+const THEME_LABELS: Record<ThemePreference, string> = {
+  system: "Match system",
+  dark: "Dark",
+  light: "Light",
+};
 
+const formatTime = (iso: string): string =>
+  new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+
+/**
+ * Settings dialog. The "saved" flash and the token draft are local; everything
+ * durable lives in SettingsContext. The dialog remounts on every open (see
+ * HomeClient), so the draft always starts from the current saved token.
+ */
+export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   if (!isOpen) return null;
+  return <SettingsDialog onClose={onClose} />;
+}
+
+function SettingsDialog({ onClose }: { onClose: () => void }) {
+  const { mamToken, setMamToken, session, checkSession, theme, setTheme } = useSettings();
+  const [draft, setDraft] = useState(mamToken);
+  const [showToken, setShowToken] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [server, setServer] = useState<StatusResponse | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const titleId = useId();
+  const tokenId = useId();
+  const themeId = useId();
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/status", { signal: controller.signal })
+      .then((r) => (r.ok ? (r.json() as Promise<StatusResponse>) : null))
+      .then((data) => data && setServer(data))
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, []);
+
+  const dirty = draft.trim() !== mamToken;
 
   const handleSave = () => {
-    setMamToken(tokenInput);
+    setMamToken(draft);
     setSaved(true);
-    setTimeout(() => {
-      setSaved(false);
-      onClose();
-    }, 1500);
-  };
-
-  const handleClose = () => {
-    setTokenInput(mamToken);
-    setSaved(false);
-    onClose();
-  };
-
-  const handleRefreshSession = async () => {
-    setIsRefreshing(true);
-    await triggerKeepalive();
-    setIsRefreshing(false);
-  };
-
-  const formatLastCheck = (isoString: string | null) => {
-    if (!isoString) return "Never";
-    const date = new Date(isoString);
-    return date.toLocaleTimeString();
+    window.setTimeout(onClose, 900);
   };
 
   return (
     <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.8)",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        zIndex: 1000
+      className="dialog-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
       }}
-      onClick={handleClose}
     >
       <div
-        style={{
-          background: "#1e293b",
-          padding: "24px",
-          borderRadius: "12px",
-          maxWidth: "500px",
-          width: "90%",
-          border: "1px solid #334155",
-          maxHeight: "90vh",
-          overflowY: "auto"
-        }}
-        onClick={(e) => e.stopPropagation()}
+        className="dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        data-testid="settings-dialog"
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-          <h2 style={{
-            margin: 0,
-            fontSize: "24px",
-            fontWeight: "700",
-            color: "#e5e7eb"
-          }}>
+        <div className="panel__row">
+          <h2 className="dialog__title" id={titleId}>
             Settings
           </h2>
+          <button
+            type="button"
+            className="icon-button"
+            onClick={onClose}
+            aria-label="Close settings"
+            data-testid="settings-close"
+          >
+            <CloseIcon />
+          </button>
+        </div>
 
-          {/* MAM Token Input */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            <label style={{
-              fontWeight: "600",
-              fontSize: "14px",
-              color: "#e5e7eb"
-            }}>
-              MAM Token
-            </label>
+        <div className="field">
+          <label className="field__label" htmlFor={tokenId}>
+            Your MAM session token <span style={{ fontWeight: 400, opacity: 0.7 }}>(optional)</span>
+          </label>
+          <div className="input-row">
             <input
-              type="password"
-              value={tokenInput}
-              onChange={(e) => setTokenInput(e.target.value)}
-              placeholder="Enter your MAM token"
-              style={{
-                width: "100%",
-                padding: "12px 16px",
-                background: "#0f172a",
-                border: "1px solid #334155",
-                borderRadius: "8px",
-                color: "#e5e7eb",
-                fontSize: "14px",
-                outline: "none",
-                boxSizing: "border-box"
-              }}
+              id={tokenId}
+              ref={inputRef}
+              className="input"
+              type={showToken ? "text" : "password"}
+              autoComplete="off"
+              spellCheck={false}
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              placeholder={server?.mamTokenConfigured ? "Using the server's session" : "Paste your mam_id"}
+              data-testid="mam-token-input"
             />
-            <p style={{
-              margin: 0,
-              fontSize: "12px",
-              color: "#94a3b8"
-            }}>
-              Get your token from MAM → Preferences → Security → Create session with "Allow dynamic seedbox IP" enabled
-            </p>
+            <button
+              type="button"
+              className="button"
+              onClick={() => setShowToken((v) => !v)}
+              aria-pressed={showToken}
+              data-testid="token-visibility"
+            >
+              {showToken ? "Hide" : "Show"}
+            </button>
           </div>
+          <p className="field__help">
+            Leave empty to use the session configured on the server. To use your own: MAM →
+            Preferences → Security → create a session with “Allow dynamic seedbox IP” enabled.
+          </p>
+        </div>
 
-          {/* Session Status */}
-          {mamToken && (
-            <div style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "12px",
-              padding: "16px",
-              background: "#0f172a",
-              borderRadius: "8px",
-              border: "1px solid #334155"
-            }}>
-              <div style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center"
-              }}>
-                <span style={{ fontSize: "14px", fontWeight: "600", color: "#e5e7eb" }}>
-                  Session Status
-                </span>
-                <span style={{
-                  padding: "4px 10px",
-                  borderRadius: "6px",
-                  fontSize: "12px",
-                  fontWeight: "600",
-                  background: keepaliveStatus.success ? "#065f46" : keepaliveStatus.lastCheck ? "#7f1d1d" : "#374151",
-                  color: keepaliveStatus.success ? "#6ee7b7" : keepaliveStatus.lastCheck ? "#fca5a5" : "#9ca3af"
-                }}>
-                  {keepaliveStatus.success ? "Active" : keepaliveStatus.lastCheck ? "Error" : "Unknown"}
-                </span>
+        {mamToken && (
+          <div className="panel" data-testid="session-panel">
+            <div className="panel__row">
+              <span className="panel__title">Your session</span>
+              <span className="pill-status" data-status={session.status} data-testid="session-status">
+                {session.status === "unknown" && "Not checked"}
+                {session.status === "checking" && "Checking…"}
+                {session.status === "active" && "Active"}
+                {session.status === "error" && "Error"}
+              </span>
+            </div>
+            {session.status === "active" && (
+              <div>
+                Checked {formatTime(session.checkedAt)} · {session.message}
               </div>
-
-              <div style={{ fontSize: "13px", color: "#94a3b8" }}>
-                <div style={{ marginBottom: "4px" }}>
-                  Last check: {formatLastCheck(keepaliveStatus.lastCheck)}
-                </div>
-                {keepaliveStatus.message && (
-                  <div style={{ color: "#6ee7b7" }}>
-                    Response: {keepaliveStatus.message}
-                  </div>
-                )}
-                {keepaliveStatus.error && (
-                  <div style={{ color: "#fca5a5" }}>
-                    Error: {keepaliveStatus.error}
-                  </div>
-                )}
+            )}
+            {session.status === "error" && (
+              <div style={{ color: "var(--danger-fg)" }} data-testid="session-error">
+                {session.message}
+                {session.hint && <div style={{ marginTop: 4 }}>{session.hint}</div>}
               </div>
-
+            )}
+            <div className="panel__row">
+              <span>Re-checked every 55 minutes while this tab is open.</span>
               <button
-                onClick={handleRefreshSession}
-                disabled={isRefreshing}
-                style={{
-                  padding: "10px 16px",
-                  background: "#374151",
-                  border: "1px solid #4b5563",
-                  borderRadius: "8px",
-                  color: "#e5e7eb",
-                  fontSize: "13px",
-                  fontWeight: "600",
-                  cursor: isRefreshing ? "not-allowed" : "pointer",
-                  opacity: isRefreshing ? 0.7 : 1
-                }}
+                type="button"
+                className="button"
+                onClick={() => void checkSession()}
+                disabled={session.status === "checking"}
+                data-testid="refresh-session"
               >
-                {isRefreshing ? "Refreshing..." : "Refresh Session Now"}
+                Check now
               </button>
-
-              <p style={{
-                margin: 0,
-                fontSize: "11px",
-                color: "#64748b"
-              }}>
-                Session is automatically refreshed every 55 minutes to keep it alive
-              </p>
             </div>
-          )}
-
-          {saved && (
-            <div style={{
-              padding: "10px",
-              background: "#065f46",
-              border: "1px solid #047857",
-              borderRadius: "8px",
-              color: "#6ee7b7",
-              fontSize: "14px",
-              fontWeight: "600",
-              textAlign: "center"
-            }}>
-              Settings saved successfully!
-            </div>
-          )}
-
-          <div style={{
-            display: "flex",
-            gap: "12px",
-            justifyContent: "flex-end"
-          }}>
-            <button
-              onClick={handleClose}
-              style={{
-                padding: "10px 20px",
-                background: "transparent",
-                border: "1px solid #334155",
-                borderRadius: "8px",
-                color: "#94a3b8",
-                fontSize: "14px",
-                fontWeight: "600",
-                cursor: "pointer"
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              style={{
-                padding: "10px 20px",
-                background: "#3b82f6",
-                border: "none",
-                borderRadius: "8px",
-                color: "white",
-                fontSize: "14px",
-                fontWeight: "600",
-                cursor: "pointer"
-              }}
-            >
-              Save
-            </button>
           </div>
+        )}
+
+        <div className="panel" data-testid="server-status">
+          <div className="panel__row">
+            <span className="panel__title">Server</span>
+            {server ? (
+              <span
+                className="pill-status"
+                data-status={server.mamTokenConfigured && server.transmissionConfigured ? "ok" : "error"}
+              >
+                {server.mamTokenConfigured && server.transmissionConfigured ? "Ready" : "Needs setup"}
+              </span>
+            ) : (
+              <span className="pill-status">…</span>
+            )}
+          </div>
+          {server && (
+            <>
+              <div>MAM session: {server.mamTokenConfigured ? "configured" : "not configured"}</div>
+              <div>Transmission: {server.transmissionConfigured ? "configured" : "not configured"}</div>
+              {server.keepalive && (
+                <div>
+                  Last MAM keepalive {formatTime(server.keepalive.at)}:{" "}
+                  {server.keepalive.success ? "OK" : "failed"} ({server.keepalive.message})
+                </div>
+              )}
+              <div style={{ opacity: 0.7 }}>BookGrab {server.version}</div>
+            </>
+          )}
+        </div>
+
+        <div className="field">
+          <label className="field__label" htmlFor={themeId}>
+            Theme
+          </label>
+          <select
+            id={themeId}
+            className="select"
+            value={theme}
+            onChange={(event) => setTheme(event.target.value as ThemePreference)}
+            data-testid="theme-select"
+          >
+            {THEME_PREFERENCES.map((option) => (
+              <option key={option} value={option}>
+                {THEME_LABELS[option]}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {saved && (
+          <div className="toast" role="status" data-testid="settings-saved">
+            Settings saved
+          </div>
+        )}
+
+        <div className="dialog__actions">
+          <button type="button" className="button" onClick={onClose} data-testid="settings-cancel">
+            {dirty ? "Cancel" : "Close"}
+          </button>
+          <button
+            type="button"
+            className="button button--primary"
+            onClick={handleSave}
+            disabled={!dirty || saved}
+            data-testid="settings-save"
+          >
+            Save
+          </button>
         </div>
       </div>
     </div>

@@ -9,8 +9,21 @@ export const getEnvVariable = (key: string): string => {
 };
 
 export const getOptionalEnvVariable = (key: string): string | undefined => {
-  return process.env[key];
+  const value = process.env[key];
+  return value && value.length > 0 ? value : undefined;
 };
+
+/** Base URL of the MAM site. Overridable so tests can point at a mock. */
+export const getMamBaseUrl = (): string =>
+  (getOptionalEnvVariable("MAM_BASE_URL") ?? "https://www.myanonamouse.net").replace(
+    /\/+$/,
+    "",
+  );
+
+/** Dynamic-seedbox keepalive endpoint. Overridable so tests can point at a mock. */
+export const getMamSeedboxUrl = (): string =>
+  getOptionalEnvVariable("MAM_SEEDBOX_URL") ??
+  "https://t.myanonamouse.net/json/dynamicSeedbox.php";
 
 export const getServerEnvVariables = () => {
   return {

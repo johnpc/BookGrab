@@ -1,79 +1,99 @@
-import { getServerEnvVariables } from "./env";
-import { TransmissionResponse } from "../types";
+import { getMamBaseUrl, getServerEnvVariables } from "./env";
+import { AppError } from "./api-error";
+import type { BookCategory } from "@/types";
+
+export interface AddTorrentResult {
+  /** True when Transmission already had this torrent. */
+  duplicate: boolean;
+  name?: string;
+}
+
+interface TransmissionRpcResponse {
+  result?: string;
+  arguments?: {
+    "torrent-added"?: { id?: number; name?: string; hashString?: string };
+    "torrent-duplicate"?: { id?: number; name?: string; hashString?: string };
+  };
+}
+
+/** Interpret a torrent-add RPC body. Pure, so it is unit-testable. */
+export function interpretTorrentAdd(body: TransmissionRpcResponse): AddTorrentResult {
+  if (body.result !== "success") {
+    throw new AppError(
+      "TRANSMISSION_UPSTREAM",
+      `Transmission refused the torrent: ${body.result ?? "unknown error"}`,
+    );
+  }
+  const duplicate = body.arguments?.["torrent-duplicate"];
+  if (duplicate) return { duplicate: true, name: duplicate.name };
+  return { duplicate: false, name: body.arguments?.["torrent-added"]?.name };
+}
+
+/** Only MAM download links may be forwarded, so the server cannot be used as a generic torrent adder. */
+export function isAllowedTorrentUrl(torrentUrl: string, mamBaseUrl: string): boolean {
+  try {
+    const target = new URL(torrentUrl);
+    const base = new URL(mamBaseUrl);
+    return (
+      target.protocol === base.protocol &&
+      target.host === base.host &&
+      target.pathname.startsWith("/tor/download.php/")
+    );
+  } catch {
+    return false;
+  }
+}
 
 export async function addTorrent(
   torrentUrl: string,
-  category: "audiobook" | "ebook",
-): Promise<TransmissionResponse> {
+  category: BookCategory,
+): Promise<AddTorrentResult> {
+  const { TRANSMISSION_URL, AUDIOBOOK_DESTINATION_PATH, EBOOK_DESTINATION_PATH } =
+    getServerEnvVariables();
+
+  if (!isAllowedTorrentUrl(torrentUrl, getMamBaseUrl())) {
+    throw new AppError("BAD_REQUEST", "Only MyAnonyMouse download links can be added.");
+  }
+
+  const downloadDir =
+    category === "audiobook" ? AUDIOBOOK_DESTINATION_PATH : EBOOK_DESTINATION_PATH;
+
+  const payload = {
+    method: "torrent-add",
+    arguments: {
+      filename: torrentUrl,
+      "download-dir": downloadDir,
+      paused: false,
+    },
+  };
+
+  let response: Response;
   try {
-    const {
-      TRANSMISSION_URL,
-      AUDIOBOOK_DESTINATION_PATH,
-      EBOOK_DESTINATION_PATH,
-    } = getServerEnvVariables();
-
-    // Determine the download path based on category
-    const downloadDir =
-      category === "audiobook"
-        ? AUDIOBOOK_DESTINATION_PATH
-        : EBOOK_DESTINATION_PATH;
-
-    // Prepare the request payload for Transmission RPC
-    const payload = {
-      method: "torrent-add",
-      arguments: {
-        filename: torrentUrl,
-        "download-dir": downloadDir,
-        paused: false,
-      },
-    };
-
-    // First attempt without session ID
-    let response = await makeTransmissionRequest(TRANSMISSION_URL, payload);
-
-    // If we get a 409 response, it means we need to use the session ID
+    // First attempt without a session id; Transmission answers 409 with the id to use.
+    response = await makeTransmissionRequest(TRANSMISSION_URL, payload);
     if (response.status === 409) {
       const sessionId = response.headers.get("X-Transmission-Session-Id");
       if (!sessionId) {
-        throw new Error("Failed to get Transmission session ID");
+        throw new AppError("TRANSMISSION_UPSTREAM", "Transmission did not provide a session id.");
       }
-
-      // Retry with the session ID
-      response = await makeTransmissionRequest(
-        TRANSMISSION_URL,
-        payload,
-        sessionId,
-      );
+      response = await makeTransmissionRequest(TRANSMISSION_URL, payload, sessionId);
     }
-
-    if (!response.ok) {
-      throw new Error(
-        `Transmission API error: ${response.status} ${response.statusText}`,
-      );
-    }
-
-    const result = await response.json();
-
-    if (result.result !== "success") {
-      return {
-        success: false,
-        message: "Failed to add torrent",
-        error: result.result,
-      };
-    }
-
-    return {
-      success: true,
-      message: "Torrent added successfully",
-    };
   } catch (error) {
-    console.error("Error adding torrent:", error);
-    return {
-      success: false,
-      message: "Failed to add torrent",
-      error: error instanceof Error ? error.message : "Unknown error occurred",
-    };
+    if (error instanceof AppError) throw error;
+    throw new AppError("TRANSMISSION_UPSTREAM", "Could not reach Transmission.", {
+      cause: error,
+    });
   }
+
+  if (!response.ok) {
+    throw new AppError(
+      "TRANSMISSION_UPSTREAM",
+      `Transmission returned ${response.status} ${response.statusText}`.trim(),
+    );
+  }
+
+  const body = (await response.json()) as TransmissionRpcResponse;
+  return interpretTorrentAdd(body);
 }
 
 async function makeTransmissionRequest(
@@ -82,18 +102,11 @@ async function makeTransmissionRequest(
   sessionId?: string,
 ): Promise<Response> {
   const body = JSON.stringify(payload);
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "Content-Length": Buffer.byteLength(body).toString(),
   };
+  if (sessionId) headers["X-Transmission-Session-Id"] = sessionId;
 
-  if (sessionId) {
-    headers["X-Transmission-Session-Id"] = sessionId;
-  }
-
-  return fetch(url, {
-    method: "POST",
-    headers,
-    body,
-  });
+  return fetch(url, { method: "POST", headers, body, cache: "no-store" });
 }
