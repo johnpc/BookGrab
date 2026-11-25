@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchBooks } from "@/lib/mam-api";
+import { parseLanguages, searchBooks } from "@/lib/mam-api";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const query = searchParams.get("q");
   const startNumber = parseInt(searchParams.get("start") || "0", 10);
   const sortType = searchParams.get("sort") || "seeds";
+  // Optional language filter, e.g. ?lang=en or ?lang=1 (MAM language ids, comma-separated).
+  const languages = parseLanguages(searchParams.get("lang"));
 
   if (!query) {
     return NextResponse.json(
@@ -17,7 +19,13 @@ export async function GET(request: NextRequest) {
   try {
     // Get MAM token from request header (sent by client)
     const mamToken = request.headers.get("x-mam-token") || undefined;
-    const result = await searchBooks(query, mamToken, startNumber, sortType);
+    const result = await searchBooks(
+      query,
+      mamToken,
+      startNumber,
+      sortType,
+      languages,
+    );
     return NextResponse.json(result);
   } catch (error) {
     console.error("Search API error:", error);

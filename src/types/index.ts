@@ -13,6 +13,8 @@ export interface Book {
   added?: string; // Date added
   tags?: string; // Tags associated with the book
   completed?: number; // Number of times completed/snatched
+  language?: number; // MAM language id (1 = English)
+  langCode?: string; // MAM language code, e.g. "ENG"
 }
 
 export interface SearchResponse {

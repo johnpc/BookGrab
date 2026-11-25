@@ -3,11 +3,27 @@ import { refreshMamSession } from "./mam-session";
 import { getMamToken } from "./mam-token";
 import { Book, SearchResponse } from "../types";
 
+// MAM language ids (tor[browse_lang]); English is 1. Accepts ids or common names/codes.
+const MAM_LANG_IDS: Record<string, string> = {
+  en: "1", eng: "1", english: "1",
+};
+
+export function parseLanguages(raw?: string | null): string[] {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((v) => v.trim().toLowerCase())
+    .filter(Boolean)
+    .map((v) => (/^\d+$/.test(v) ? v : MAM_LANG_IDS[v]))
+    .filter((v): v is string => Boolean(v));
+}
+
 export async function searchBooks(
   query: string,
   mamToken?: string,
   startNumber: number = 0,
   sortType: string = "seeds",
+  languages: string[] = [],
 ): Promise<SearchResponse> {
   try {
     const { MAM_TOKEN: envToken } = getServerEnvVariables();
@@ -36,6 +52,8 @@ export async function searchBooks(
         cat: ["0"],
         sortType: sortType,
         startNumber: startNumber.toString(),
+        // Server-side language filter; omitted when empty so every language is returned.
+        ...(languages.length ? { browse_lang: languages } : {}),
       },
       thumbnail: "true",
     };
@@ -150,6 +168,11 @@ export async function searchBooks(
         added: item.added || null,
         tags: item.tags || null,
         completed: item.times_completed || 0,
+        language:
+          item.language !== undefined && item.language !== null
+            ? Number(item.language)
+            : undefined,
+        langCode: item.lang_code || undefined,
       };
     });
 
