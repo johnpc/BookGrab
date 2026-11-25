@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { parseLanguages, searchBooks } from "@/lib/mam-api";
+import { parseCategory, parseLanguages, searchBooks } from "@/lib/mam-api";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -8,6 +8,8 @@ export async function GET(request: NextRequest) {
   const sortType = searchParams.get("sort") || "seeds";
   // Optional language filter, e.g. ?lang=en or ?lang=1 (MAM language ids, comma-separated).
   const languages = parseLanguages(searchParams.get("lang"));
+  // Optional ?category=audiobook|ebook (MAM main category).
+  const mainCategories = parseCategory(searchParams.get("category"));
 
   if (!query) {
     return NextResponse.json(
@@ -25,6 +27,7 @@ export async function GET(request: NextRequest) {
       startNumber,
       sortType,
       languages,
+      mainCategories,
     );
     return NextResponse.json(result);
   } catch (error) {

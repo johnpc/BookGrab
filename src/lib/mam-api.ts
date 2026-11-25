@@ -18,12 +18,28 @@ export function parseLanguages(raw?: string | null): string[] {
     .filter((v): v is string => Boolean(v));
 }
 
+// MAM main categories (tor.main_cat): 13 = AudioBooks, 14 = E-Books.
+const MAM_MAIN_CAT: Record<string, string> = { audiobook: "13", ebook: "14" };
+
+export function parseCategory(raw?: string | null): string[] {
+  const id = raw ? MAM_MAIN_CAT[raw.trim().toLowerCase()] : undefined;
+  return id ? [id] : [];
+}
+
+// MAM's full-text search returns nothing when the query carries search-syntax
+// punctuation such as "?" ("Who Moved My Cheese?" -> 0 results). Titles never
+// need it to match, so turn it into spaces.
+export function sanitizeQuery(query: string): string {
+  return query.replace(/[?!*"()|@~^$<>=]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
 export async function searchBooks(
   query: string,
   mamToken?: string,
   startNumber: number = 0,
   sortType: string = "seeds",
   languages: string[] = [],
+  mainCategories: string[] = [],
 ): Promise<SearchResponse> {
   try {
     const { MAM_TOKEN: envToken } = getServerEnvVariables();
@@ -39,7 +55,7 @@ export async function searchBooks(
     const searchPayload = {
       dlLink: "",
       tor: {
-        text: query,
+        text: sanitizeQuery(query),
         srchIn: {
           title: "true",
           author: "true",
@@ -54,6 +70,8 @@ export async function searchBooks(
         startNumber: startNumber.toString(),
         // Server-side language filter; omitted when empty so every language is returned.
         ...(languages.length ? { browse_lang: languages } : {}),
+        // Optional audiobook/ebook-only search, so a big audiobook series cannot crowd ebooks off page one.
+        ...(mainCategories.length ? { main_cat: mainCategories } : {}),
       },
       thumbnail: "true",
     };
