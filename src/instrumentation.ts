@@ -1,7 +1,9 @@
 /**
- * Keeps the MAM session bound to the current IP for as long as the container
- * runs. MAM cookies carry a 15 day Max-Age and rotate on each refresh, so a
- * twice-daily ping stays well inside that window without hammering them.
+ * Keeps the server's MAM session bound to the current IP for as long as the
+ * process runs. MAM cookies carry a 15 day Max-Age and rotate on each refresh,
+ * so a twice-daily ping stays well inside that window without hammering them.
+ *
+ * Disable with MAM_KEEPALIVE_DISABLED=true (tests do this).
  */
 const REFRESH_INTERVAL_MS = 12 * 60 * 60 * 1000;
 const STARTUP_DELAY_MS = 30 * 1000;

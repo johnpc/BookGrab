@@ -1,238 +1,155 @@
 "use client";
 
-import { useState, FormEvent, useRef, useEffect } from "react";
-import {
-  SearchField,
-  Button,
-  Flex,
-  Card,
-  Text,
-  Divider,
-  useTheme,
-} from "@aws-amplify/ui-react";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
+import { isStringArray, parseJson, STORAGE_KEYS, useStoredString, writeJson, writeString } from "@/lib/storage";
+import { ClockIcon, CloseIcon, SearchIcon } from "./icons";
 
 interface SearchBarProps {
+  /** Query currently applied (from the URL); keeps the field in sync on back/forward. */
+  value: string;
   onSearch: (query: string) => void;
-  isLoading: boolean;
+  isFetching: boolean;
 }
 
-export default function SearchBar({ onSearch, isLoading }: SearchBarProps) {
-  const [query, setQuery] = useState("");
-  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+const MAX_RECENT = 5;
+
+export default function SearchBar({ value, onSearch, isFetching }: SearchBarProps) {
+  const [query, setQuery] = useState(value);
+  const [appliedValue, setAppliedValue] = useState(value);
   const [showRecent, setShowRecent] = useState(false);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const { tokens } = useTheme();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const inputId = useId();
+  const listId = useId();
 
-  // Load recent searches from localStorage on component mount
-  useEffect(() => {
-    const savedSearches = localStorage.getItem("recentSearches");
-    if (savedSearches) {
-      try {
-        setRecentSearches(JSON.parse(savedSearches));
-      } catch (e) {
-        console.error("Failed to parse recent searches:", e);
-      }
-    }
-  }, []);
+  // Keep the field in sync when the applied query changes from outside
+  // (deep link, back/forward, example pill). Derived during render, per
+  // https://react.dev/learn/you-might-not-need-an-effect. The URL catching up
+  // with what this field just submitted is not an outside change, so it must
+  // not clobber anything typed in the meantime.
+  const [lastSubmitted, setLastSubmitted] = useState<string | null>(null);
+  if (value !== appliedValue) {
+    setAppliedValue(value);
+    if (value !== lastSubmitted) setQuery(value);
+  }
 
-  // Handle clicks outside the dropdown to close it
+  const storedRecent = useStoredString(STORAGE_KEYS.recentSearches);
+  const recent = useMemo(() => parseJson(storedRecent, isStringArray) ?? [], [storedRecent]);
+
+  // Close the dropdown on outside click or Escape.
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node) &&
-        searchInputRef.current &&
-        !searchInputRef.current.contains(event.target as Node)
-      ) {
-        setShowRecent(false);
-      }
+    if (!showRecent) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setShowRecent(false);
     };
-
-    document.addEventListener("mousedown", handleClickOutside);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowRecent(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
     };
-  }, []);
+  }, [showRecent]);
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    if (query.trim()) {
-      performSearch(query.trim());
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      if (query.trim()) {
-        performSearch(query.trim());
-      }
-    }
-  };
-
-  const performSearch = (searchQuery: string) => {
-    onSearch(searchQuery);
-
-    // Save to recent searches
-    const updatedSearches = [
-      searchQuery,
-      ...recentSearches.filter((s) => s !== searchQuery),
-    ].slice(0, 5); // Keep only the 5 most recent
-
-    setRecentSearches(updatedSearches);
-    localStorage.setItem("recentSearches", JSON.stringify(updatedSearches));
+  const submit = (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+    const updated = [trimmed, ...recent.filter((s) => s !== trimmed)].slice(0, MAX_RECENT);
+    writeJson(STORAGE_KEYS.recentSearches, updated);
     setShowRecent(false);
+    setQuery(trimmed);
+    setLastSubmitted(trimmed);
+    onSearch(trimmed);
   };
 
-  const handleRecentSearch = (searchQuery: string) => {
-    setQuery(searchQuery);
-    performSearch(searchQuery);
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    submit(query);
   };
 
-  const clearRecentSearches = () => {
-    setRecentSearches([]);
-    localStorage.removeItem("recentSearches");
+  const clearRecent = () => {
+    writeString(STORAGE_KEYS.recentSearches, null);
     setShowRecent(false);
   };
 
   return (
-    <div style={{ position: "relative", width: "100%" }}>
-      <form onSubmit={handleSubmit} style={{ width: "100%" }}>
-        <div style={{ position: "relative" }}>
-          <div style={{
-            position: "absolute",
-            left: "20px",
-            top: "50%",
-            transform: "translateY(-50%)",
-            pointerEvents: "none",
-            zIndex: 1
-          }}>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="22"
-              height="22"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="#94a3b8"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-          </div>
+    <div className="search" ref={rootRef}>
+      <form
+        className="search__row"
+        role="search"
+        onSubmit={handleSubmit}
+        data-testid="search-form"
+      >
+        <div className="search__field">
+          <label htmlFor={inputId} className="visually-hidden">
+            Search for books, authors, or series
+          </label>
+          <span className="search__icon">
+            <SearchIcon />
+          </span>
           <input
-            ref={searchInputRef as any}
-            type="text"
-            placeholder="Search for books, authors, or series..."
+            id={inputId}
+            ref={inputRef}
+            className="search__input"
+            type="search"
+            name="q"
+            autoComplete="off"
+            enterKeyHint="search"
+            placeholder="Search for books, authors, or series…"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onFocus={() => recentSearches.length > 0 && setShowRecent(true)}
-            disabled={isLoading}
-            style={{
-              width: "100%",
-              padding: "16px 50px",
-              fontSize: "15px",
-              background: "#0f172a",
-              border: "1px solid #334155",
-              borderRadius: "10px",
-              color: "#e5e7eb",
-              outline: "none"
-            }}
+            onChange={(event) => setQuery(event.target.value)}
+            onFocus={() => recent.length > 0 && setShowRecent(true)}
+            data-testid="search-input"
           />
+          {query && (
+            <button
+              type="button"
+              className="search__clear"
+              onClick={() => {
+                setQuery("");
+                inputRef.current?.focus();
+              }}
+              aria-label="Clear search text"
+              data-testid="search-clear"
+            >
+              <CloseIcon size={16} />
+            </button>
+          )}
         </div>
-        <button type="submit" style={{ display: 'none' }} aria-hidden="true" />
+        <button
+          type="submit"
+          className="search__submit"
+          data-testid="search-submit"
+          aria-busy={isFetching}
+        >
+          Search
+        </button>
       </form>
 
-      {/* Recent searches dropdown */}
-      {showRecent && recentSearches.length > 0 && (
-        <div
-          ref={dropdownRef as any}
-          style={{
-            position: "absolute",
-            top: "calc(100% + 8px)",
-            left: 0,
-            right: 0,
-            background: "#1e293b",
-            border: "1px solid #334155",
-            borderRadius: "10px",
-            padding: "12px",
-            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.4)",
-            zIndex: 10
-          }}
-        >
-          <div style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "8px",
-            padding: "4px 8px"
-          }}>
-            <Text fontWeight="600" fontSize="small" color="#94a3b8">
-              Recent Searches
-            </Text>
-            <button
-              onClick={clearRecentSearches}
-              style={{
-                background: "none",
-                border: "none",
-                color: "#ef4444",
-                cursor: "pointer",
-                fontSize: "12px",
-                fontWeight: "500",
-                padding: "4px 8px",
-                borderRadius: "6px"
-              }}
-            >
-              Clear All
+      {showRecent && recent.length > 0 && (
+        <div className="recent" data-testid="recent-searches">
+          <div className="recent__header">
+            <span>Recent searches</span>
+            <button type="button" className="recent__clear" onClick={clearRecent}>
+              Clear all
             </button>
           </div>
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "4px"
-          }}>
-            {recentSearches.map((search, index) => (
-              <button
-                key={index}
-                onClick={() => handleRecentSearch(search)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "12px",
-                  padding: "10px 12px",
-                  background: "transparent",
-                  border: "none",
-                  borderRadius: "8px",
-                  color: "#e5e7eb",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  fontSize: "14px"
-                }}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="#94a3b8"
-                  strokeWidth={2}
+          <ul className="recent__list" id={listId}>
+            {recent.map((item) => (
+              <li key={item}>
+                <button
+                  type="button"
+                  className="recent__item"
+                  onClick={() => submit(item)}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                <span>{search}</span>
-              </button>
+                  <ClockIcon />
+                  <span>{item}</span>
+                </button>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       )}
     </div>

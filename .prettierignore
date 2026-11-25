@@ -1,5 +1,4 @@
-*.svg
-*.png
-*.ico
-.gitignore
-.prettierignore
+.next
+node_modules
+playwright-report
+test-results

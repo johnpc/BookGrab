@@ -1,13 +1,17 @@
 {
   "name": "BookGrab",
   "short_name": "BookGrab",
-  "description": "Simple book search and download app for MyAnonyMouse",
+  "description": "Search MyAnonyMouse for ebooks and audiobooks and send them to Transmission.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#000000",
+  "background_color": "#0f172a",
+  "theme_color": "#1e293b",
   "orientation": "portrait-primary",
-  "categories": ["books", "entertainment", "utilities"],
+  "categories": [
+    "books",
+    "entertainment",
+    "utilities"
+  ],
   "icons": [
     {
       "src": "/icons/icon-192x192.png",

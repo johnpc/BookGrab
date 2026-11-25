@@ -1,31 +1,76 @@
+export type BookCategory = "audiobook" | "ebook";
+
 export interface Book {
   id: string;
   title: string;
   author: string;
-  narrator?: string; // Optional for audiobooks
+  /** Audiobooks only. */
+  narrator?: string;
+  /** File type(s) as reported by MAM, e.g. "epub mobi" or "m4b". */
   format: string;
-  length?: string; // Optional for audiobooks
+  /** Audiobooks only, parsed from the description when present. */
+  length?: string;
   torrentLink: string;
-  category: "audiobook" | "ebook";
-  size?: string; // Size of the torrent
-  seeders?: number; // Number of seeders
-  leechers?: number; // Number of leechers
-  added?: string; // Date added
-  tags?: string; // Tags associated with the book
-  completed?: number; // Number of times completed/snatched
-  language?: number; // MAM language id (1 = English)
-  langCode?: string; // MAM language code, e.g. "ENG"
+  category: BookCategory;
+  /** Human-readable size as reported by MAM, e.g. "881.8 MiB". */
+  size: string | null;
+  seeders: number;
+  leechers: number;
+  /** MAM "added" timestamp, "YYYY-MM-DD HH:mm:ss" (UTC). */
+  added: string | null;
+  tags: string | null;
+  /** Times snatched. */
+  completed: number;
+  /** MAM language id (1 = English). */
+  language?: number;
+  /** MAM language code, e.g. "ENG". */
+  langCode?: string;
 }
 
 export interface SearchResponse {
   books: Book[];
-  error?: string;
-  hasMore?: boolean;
-  totalResults?: number;
+  hasMore: boolean;
+  totalResults: number;
 }
 
-export interface TransmissionResponse {
+/** Stable machine-readable error codes returned by /api/* routes. */
+export type ApiErrorCode =
+  | "BAD_REQUEST"
+  | "MAM_NOT_CONFIGURED"
+  | "MAM_AUTH"
+  | "MAM_UPSTREAM"
+  | "TRANSMISSION_UPSTREAM"
+  | "INTERNAL";
+
+export interface ApiError {
+  error: string;
+  code: ApiErrorCode;
+  hint?: string;
+}
+
+export interface GrabResponse {
+  success: true;
+  message: string;
+  /** True when Transmission already had this torrent. */
+  duplicate: boolean;
+}
+
+export interface KeepaliveResponse {
   success: boolean;
   message: string;
-  error?: string;
+  rotated: boolean;
+  hint?: string;
+  timestamp: string;
+}
+
+export interface StatusResponse {
+  ok: true;
+  version: string;
+  mamTokenConfigured: boolean;
+  transmissionConfigured: boolean;
+  keepalive: {
+    at: string;
+    success: boolean;
+    message: string;
+  } | null;
 }

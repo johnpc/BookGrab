@@ -1,112 +1,53 @@
 "use client";
 
-import { useState } from "react";
-import { Book } from "@/types";
+import type { Book } from "@/types";
+import { selectGrab, type GrabMap } from "@/state/grab";
 import BookCard from "./BookCard";
-import {
-  Flex,
-  SelectField,
-  ToggleButtonGroup,
-  ToggleButton,
-  Text,
-  Loader,
-  Alert,
-  useTheme,
-  View,
-} from "@aws-amplify/ui-react";
 
 interface BookListProps {
   books: Book[];
-  isLoading: boolean;
-  error?: string;
+  grabs: GrabMap;
+  onGrab: (book: Book) => void;
+  onRetry: (bookId: string) => void;
+  mamBaseUrl: string;
 }
 
-export default function BookList({ books, isLoading, error }: BookListProps) {
-  const [view, setView] = useState<"grid" | "list">("grid");
-  const { tokens } = useTheme();
-
-  if (isLoading) {
-    return (
-      <div style={{
-        width: "100%",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: "80px 24px"
-      }}>
-        <div style={{
-          textAlign: "center"
-        }}>
-          <div style={{
-            width: "60px",
-            height: "60px",
-            border: "4px solid rgba(102, 126, 234, 0.2)",
-            borderTop: "4px solid #667eea",
-            borderRadius: "50%",
-            margin: "0 auto 20px",
-            animation: "spin 1s linear infinite"
-          }} />
-          <style>{`
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-          `}</style>
-          <Text fontSize="medium" color="#94a3b8" fontWeight="500">
-            Loading books...
-          </Text>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div style={{
-        padding: "20px",
-        background: "rgba(239, 68, 68, 0.15)",
-        border: "1px solid rgba(239, 68, 68, 0.3)",
-        borderRadius: "12px",
-        color: "#ef4444",
-        fontSize: "15px",
-        fontWeight: "500"
-      }}>
-        ✕ Error: {error}
-      </div>
-    );
-  }
-
-  if (books.length === 0) {
-    return (
-      <div style={{
-        width: "100%",
-        textAlign: "center",
-        padding: "80px 24px"
-      }}>
-        <div style={{
-          fontSize: "48px",
-          marginBottom: "16px"
-        }}>📚</div>
-        <Text fontSize="large" color="#94a3b8" fontWeight="500">
-          No books found. Try a different search term.
-        </Text>
-      </div>
-    );
-  }
-
+export function BookList({ books, grabs, onGrab, onRetry, mamBaseUrl }: BookListProps) {
   return (
-    <div style={{ width: "100%" }}>
-      {/* Book grid - mobile-first, single column on mobile, 2 columns on larger screens */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "1fr",
-        gap: "12px",
-        width: "100%"
-      }}>
-        {books.map((book) => (
-          <BookCard key={book.id} book={book} />
-        ))}
-      </div>
+    <div className="grid" data-testid="results">
+      {books.map((book) => (
+        <BookCard
+          key={book.id}
+          book={book}
+          grab={selectGrab(grabs, book.id)}
+          onGrab={onGrab}
+          onRetry={onRetry}
+          mamBaseUrl={mamBaseUrl}
+        />
+      ))}
+    </div>
+  );
+}
+
+export function BookListSkeleton({ count = 6 }: { count?: number }) {
+  return (
+    <div className="grid" aria-hidden="true" data-testid="results-skeleton">
+      {Array.from({ length: count }, (_, i) => (
+        <div className="card" key={i}>
+          <div className="card__badges">
+            <span className="skeleton" style={{ width: 80, height: 22 }} />
+            <span className="skeleton" style={{ width: 48, height: 22 }} />
+          </div>
+          <div className="skeleton" style={{ width: "70%", height: 20 }} />
+          <div className="skeleton" style={{ width: "45%", height: 14 }} />
+          <div className="stats">
+            <span className="skeleton" style={{ width: 56, height: 36 }} />
+            <span className="skeleton" style={{ width: 56, height: 36 }} />
+            <span className="skeleton" style={{ width: 56, height: 36 }} />
+          </div>
+          <div className="skeleton" style={{ height: 46, borderRadius: 8 }} />
+        </div>
+      ))}
     </div>
   );
 }
