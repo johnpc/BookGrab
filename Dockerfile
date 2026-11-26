@@ -41,6 +41,7 @@ COPY --from=builder /app/.next/static ./.next/static
 # mam_id on every refresh, so this must survive container recreation - mount
 # a named volume here or the token resets to the MAM_TOKEN seed on restart.
 ENV MAM_TOKEN_FILE=/data/mam_token
+ENV COPY_QUEUE_FILE=/data/copy-queue.json
 RUN mkdir -p /data
 
 # Set proper permissions

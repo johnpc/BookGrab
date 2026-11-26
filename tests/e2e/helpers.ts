@@ -4,9 +4,11 @@ import { MOCK_ORIGIN } from "../mock/env.mjs";
 export const mock = {
   reset: (request: APIRequestContext) => request.post(`${MOCK_ORIGIN}/__mock/reset`),
   release: (request: APIRequestContext) => request.post(`${MOCK_ORIGIN}/__mock/release`),
+  complete: (request: APIRequestContext) => request.post(`${MOCK_ORIGIN}/__mock/complete`),
   state: async (request: APIRequestContext) =>
     (await (await request.get(`${MOCK_ORIGIN}/__mock/state`)).json()) as {
       added: string[];
+      torrents: { name: string; hashString: string; downloadDir: string; percentDone: number }[];
       gatedPending: number;
       servedGated: number;
       searchCalls: number;

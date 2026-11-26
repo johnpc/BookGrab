@@ -91,6 +91,9 @@ keys its recovery actions off `code` (e.g. `MAM_AUTH` → "Open settings").
 | `MAM_BASE_URL` | MAM origin (default `https://www.myanonamouse.net`). Tests point it at the mock. |
 | `MAM_SEEDBOX_URL` | Dynamic-seedbox keepalive URL. Tests point it at the mock. |
 | `MAM_KEEPALIVE_DISABLED` | `true` disables the 12-hourly server keepalive (tests). |
+| `AUDIOBOOK_COPY_PATH` / `EBOOK_COPY_PATH` | Optional. Finished downloads are copied (never moved) here. |
+| `TRANSMISSION_PATH_MAP` | `remote=local[,…]` translating Transmission's download dirs to paths BookGrab can read. |
+| `COPY_QUEUE_FILE` / `COPY_POLL_INTERVAL_MS` | Pending-copy queue file (Docker: `/data/copy-queue.json`) and poll interval (default 30 s). |
 
 ## State machines
 
@@ -144,6 +147,17 @@ Precedence: request header `x-mam-token` (user) → `MAM_TOKEN_FILE` → `MAM_TO
 seed. The server refreshes its own session 30 s after boot and every 12 h,
 persisting each rotated `mam_id` atomically. On a 403 during search it refreshes
 once and retries. User-supplied tokens are never persisted or rotated.
+
+### Copy on complete (`lib/copy-completed.ts`)
+
+A new (non-duplicate) grab is queued by torrent hash in `COPY_QUEUE_FILE` when
+a copy dir is set for its category. `instrumentation.ts` polls Transmission
+(`torrent-get`) and `fs.cp`s each torrent at 100% from its download dir (mapped
+through `TRANSMISSION_PATH_MAP`) into the copy dir, never overwriting and never
+moving. Failures retry 5 times, then count as `failed`. The queue is a file
+because route handlers and instrumentation do not share module state.
+Observable: `/api/status` → `copy: { enabled, pending, copied, failed }`.
+Mock: `POST /__mock/complete` marks added torrents 100% (default 50%).
 
 ### Theme (`lib/theme.ts`)
 

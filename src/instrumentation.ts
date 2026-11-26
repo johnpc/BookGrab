@@ -7,10 +7,14 @@
  */
 const REFRESH_INTERVAL_MS = 12 * 60 * 60 * 1000;
 const STARTUP_DELAY_MS = 30 * 1000;
+const COPY_POLL_INTERVAL_MS = 30 * 1000;
 
 export async function register() {
   // Only the Node.js server runtime should schedule work.
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
+
+  await startCopyPoller();
+
   if (process.env.MAM_KEEPALIVE_DISABLED === "true") return;
 
   const { refreshMamSession } = await import("./lib/mam-session");
@@ -35,4 +39,20 @@ export async function register() {
   // Delay the first run so it cannot slow container startup.
   setTimeout(runRefresh, STARTUP_DELAY_MS).unref?.();
   setInterval(runRefresh, REFRESH_INTERVAL_MS).unref?.();
+}
+
+/** Copies finished downloads to AUDIOBOOK_COPY_PATH / EBOOK_COPY_PATH when set. */
+async function startCopyPoller() {
+  const { isCopyEnabled, processCopyQueue } = await import("./lib/copy-completed");
+  if (!isCopyEnabled()) return;
+
+  const interval = Number(process.env.COPY_POLL_INTERVAL_MS) || COPY_POLL_INTERVAL_MS;
+  const tick = async () => {
+    try {
+      await processCopyQueue();
+    } catch (error) {
+      console.error("Copy poll failed:", error);
+    }
+  };
+  setInterval(tick, interval).unref?.();
 }

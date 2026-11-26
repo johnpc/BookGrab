@@ -22,6 +22,7 @@ BookGrab does one thing well: search MAM, download with a single click.
 - **English only** by default (one tap to include every language); non-English results carry a language badge
 - Filter by ebook / audiobook and sort by seeders, newest, size, title or downloads, instantly, without refetching
 - One-click send to Transmission with separate download paths for audiobooks and ebooks; the app remembers what you already grabbed and tells you when Transmission already has it
+- Optional copy of finished downloads to separate audiobook / ebook directories (copied, not moved)
 - Shareable URLs: every search, filter, sort and page is in the address bar, so refresh, back/forward and deep links just work
 - Optional per-user MAM token with live session status; otherwise the server's session is used and kept alive automatically
 - Dark / light / system theme, installable PWA, mobile-first layout that scales to three columns on desktop
@@ -92,6 +93,10 @@ No MAM account handy? `npm run dev:mock` runs the app against a built-in fake MA
 | `TRANSMISSION_URL` | yes | Transmission RPC URL. |
 | `AUDIOBOOK_DESTINATION_PATH` | yes | Download directory for audiobooks. |
 | `EBOOK_DESTINATION_PATH` | yes | Download directory for ebooks. |
+| `AUDIOBOOK_COPY_PATH` / `EBOOK_COPY_PATH` | no | When set, finished downloads of that type are **copied** here (never moved, so seeding continues). BookGrab must be able to read the download dirs and write these dirs. |
+| `TRANSMISSION_PATH_MAP` | no | Maps Transmission's paths to BookGrab's when they differ, e.g. `/downloads=/mnt/downloads` (comma-separate several). |
+| `COPY_QUEUE_FILE` | no | Where pending copies persist. The Docker image sets `/data/copy-queue.json`. |
+| `COPY_POLL_INTERVAL_MS` | no | How often to check Transmission for finished downloads (default 30000). |
 | `MAM_BASE_URL`, `MAM_SEEDBOX_URL` | no | Override MAM endpoints (used by tests). |
 | `MAM_KEEPALIVE_DISABLED` | no | `true` disables the twice-daily server-side session refresh. |
 
