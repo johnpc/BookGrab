@@ -14,6 +14,7 @@
  *   POST /transmission/rpc                 Transmission RPC with the 409 session-id handshake
  *   GET  /__mock/state                     Inspect added torrents / served gated requests
  *   POST /__mock/reset                     Forget added torrents
+ *   POST /__mock/complete                  Mark every added torrent 100% downloaded (default 50%)
  *   POST /__mock/release                   Release requests whose query starts with "gated"
  *
  * Query behaviours (case-insensitive, after MAM-style sanitising):
@@ -129,6 +130,8 @@ function datasetFor(query) {
 // State
 // ---------------------------------------------------------------------------
 const added = new Set();
+// hashString → { name, downloadDir, percentDone }, for torrent-get.
+const torrents = new Map();
 let gated = [];
 let servedGated = 0;
 let searchCalls = 0;
@@ -220,6 +223,11 @@ async function handleTransmission(req, res) {
   } catch {
     return json(res, 400, { result: "bad json" });
   }
+  if (body.method === "torrent-get") {
+    const wanted = body.arguments?.ids;
+    const found = [...torrents.values()].filter((t) => !Array.isArray(wanted) || wanted.includes(t.hashString));
+    return json(res, 200, { result: "success", arguments: { torrents: found } });
+  }
   if (body.method !== "torrent-add") return json(res, 200, { result: "method not recognized" });
   const filename = String(body.arguments?.filename ?? "");
   if (filename.includes("fail")) return json(res, 200, { result: "unrecognized info" });
@@ -227,6 +235,11 @@ async function handleTransmission(req, res) {
   const info = { id: added.size + 1, name: filename.split("/").pop(), hashString: hash(filename).toString(16) };
   if (added.has(filename)) return json(res, 200, { result: "success", arguments: { "torrent-duplicate": info } });
   added.add(filename);
+  torrents.set(info.hashString, {
+    ...info,
+    downloadDir: String(body.arguments?.["download-dir"] ?? ""),
+    percentDone: 0.5,
+  });
   void key;
   json(res, 200, { result: "success", arguments: { "torrent-added": info } });
 }
@@ -238,10 +251,21 @@ const server = createServer(async (req, res) => {
     if (url.pathname === "/json/dynamicSeedbox.php") return handleSeedbox(req, res);
     if (req.method === "POST" && url.pathname === "/transmission/rpc") return await handleTransmission(req, res);
     if (url.pathname === "/__mock/state") {
-      return json(res, 200, { added: [...added], gatedPending: gated.length, servedGated, searchCalls });
+      return json(res, 200, {
+        added: [...added],
+        torrents: [...torrents.values()],
+        gatedPending: gated.length,
+        servedGated,
+        searchCalls,
+      });
+    }
+    if (req.method === "POST" && url.pathname === "/__mock/complete") {
+      for (const t of torrents.values()) t.percentDone = 1;
+      return json(res, 200, { completed: torrents.size });
     }
     if (req.method === "POST" && url.pathname === "/__mock/reset") {
       added.clear();
+      torrents.clear();
       gated = [];
       servedGated = 0;
       searchCalls = 0;

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getLastKeepalive } from "@/lib/mam-session";
 import { getMamToken } from "@/lib/mam-token";
 import { getOptionalEnvVariable } from "@/lib/env";
+import { getCopyStatus } from "@/lib/copy-completed";
 import type { StatusResponse } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,7 @@ export async function GET() {
     mamTokenConfigured: Boolean(getMamToken()),
     transmissionConfigured: Boolean(getOptionalEnvVariable("TRANSMISSION_URL")),
     keepalive: getLastKeepalive(),
+    copy: await getCopyStatus(),
   };
   return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
 }

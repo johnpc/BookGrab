@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { addTorrent } from "@/lib/transmission-api";
+import { enqueueCopy } from "@/lib/copy-completed";
 import { AppError, errorResponse } from "@/lib/api-error";
 import type { GrabResponse } from "@/types";
 
@@ -33,6 +34,12 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await addTorrent(torrentUrl, category);
+    if (!result.duplicate) {
+      // The torrent is already in Transmission, so a queue failure must not fail the grab.
+      await enqueueCopy(result.hash, category).catch((error) =>
+        console.error("Could not queue copy:", error),
+      );
+    }
     const response: GrabResponse = {
       success: true,
       duplicate: result.duplicate,

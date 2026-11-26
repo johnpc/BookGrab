@@ -73,4 +73,11 @@ export interface StatusResponse {
     success: boolean;
     message: string;
   } | null;
+  /** Copy-on-complete: pending/copied/failed are torrents, `enabled` means a copy dir is set. */
+  copy: {
+    enabled: boolean;
+    pending: number;
+    copied: number;
+    failed: number;
+  };
 }
